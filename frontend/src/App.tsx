@@ -32,7 +32,7 @@ function App() {
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <div>
-            <Swap />
+            <Home />
           </div>
         </WalletModalProvider>
       </WalletProvider>
