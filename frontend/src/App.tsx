@@ -14,7 +14,6 @@ import { clusterApiUrl } from "@solana/web3.js";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 import Home from "./components/Home";
-import Swap from "./components/Swap";
 
 function App() {
   const network = clusterApiUrl("devnet");
