@@ -1,0 +1,228 @@
+To implement the **Token Creation Program** on **Solana**, 
+you'll need to use **Solana SPL tokens** (Solana’s equivalent of ERC-20). 
+Here's how you can approach it from a **blockchain and backend perspective**:
+
+---
+
+### **1. Smart Contract (Solana Program) for Token Creation**
+You'll write an **on-chain program** (smart contract) in **Rust** 
+to allow developers to create and configure tokenized videos.
+
+#### **Steps:**
+1. **Set Up a Solana Program**
+   - Install the Solana CLI, Anchor framework, and Rust toolchain.
+   - Create a new Anchor project for your token creation program.
+
+2. **Define Token Attributes**
+   - Token supply
+   - Bonding curve model (linear, exponential, etc.)
+   - Initial price
+   - Metadata (title, description, video link)
+
+3. **Use SPL Token Library**
+   - Create a new token mint using the **SPL Token Program**.
+   - Assign mint authority to the developer.
+   - Store token metadata on-chain or using **Metaplex**.
+
+4. **Deploy the Program**
+   - Deploy the Rust program on **Solana Devnet/Testnet**.
+   - Use a **frontend (Next.js)** to call the program.
+
+---
+
+
+
+
+### **2. Rust Code: Token Creation Program**
+Here’s a simplified version of the Solana program for **minting a new video token**.
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo};
+
+declare_id!("YourProgramPublicKeyHere");
+
+#[program]
+pub mod videotoken_platform {
+    use super::*;
+
+    pub fn create_token(
+        ctx: Context<CreateToken>,
+        name: String,
+        symbol: String,
+        initial_supply: u64,
+    ) -> Result<()> {
+        let token_mint = &ctx.accounts.token_mint;
+        let creator = &ctx.accounts.creator;
+        let token_account = &ctx.accounts.token_account;
+        let token_program = &ctx.accounts.token_program;
+
+        // Mint initial supply to the creator
+        let cpi_accounts = MintTo {
+            mint: token_mint.to_account_info(),
+            to: token_account.to_account_info(),
+            authority: creator.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(token_program.to_account_info(), cpi_accounts);
+        token::mint_to(cpi_ctx, initial_supply)?;
+
+        msg!("Token Created: {} with supply: {}", name, initial_supply);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct CreateToken<'info> {
+    #[account(init, payer = creator, mint::decimals = 9, mint::authority = creator)]
+    pub token_mint: Account<'info, Mint>,
+    
+    #[account(mut)]
+    pub creator: Signer<'info>,
+    
+    #[account(init, payer = creator, associated_token::mint = token_mint, associated_token::authority = creator)]
+    pub token_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+```
+
+---
+
+### **3. Deploy the Program on Solana**
+1. **Install Solana CLI & Anchor**
+   ```bash
+   solana-install init
+   anchor init videotokens
+   ```
+2. **Build & Deploy the Smart Contract**
+   ```bash
+   anchor build
+   anchor deploy
+   ```
+
+---
+
+### **4. Backend (Node.js) for Interaction**
+You'll use `@solana/web3.js` and `@metaplex-foundation/js` for backend interactions.
+
+#### **Install Dependencies**
+```bash
+npm install @solana/web3.js @solana/spl-token @metaplex-foundation/js dotenv
+```
+
+#### **Create & Mint a Token (Backend)**
+```javascript
+import { Connection, PublicKey, Keypair, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
+import dotenv from "dotenv";
+dotenv.config();
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+
+async function createVideoToken() {
+    const payer = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(process.env.PRIVATE_KEY)));
+    const mint = await createMint(connection, payer, payer.publicKey, null, 9);
+     
+    console.log("Token Mint Address:", mint.toBase58());
+    
+    // Create an associated token account for the creator
+    const tokenAccount = await getOrCreateAssociatedTokenAccount(connection, payer, mint, payer.publicKey);
+    
+    // Mint initial supply to the creator
+    await mintTo(connection, payer, mint, tokenAccount.address, payer.publicKey, 1000000);
+    
+    console.log("Minted 1,000,000 tokens to:", tokenAccount.address.toBase58());
+}
+
+createVideoToken().catch(console.error);
+```
+
+---
+
+### **5. Frontend (Next.js) for Token Interaction**
+#### **Install Dependencies**
+```bash
+npm install @solana/web3.js @solana/wallet-adapter-react @solana/wallet-adapter-wallets @solana/wallet-adapter-react-ui
+```
+
+#### **Connect Wallet & Create Token**
+```javascript
+import { useWallet, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection("https://api.devnet.solana.com");
+
+export default function Home() {
+    const { publicKey, sendTransaction } = useWallet();
+
+    async function handleCreateToken() {
+        if (!publicKey) return alert("Connect your wallet first!");
+        // Call backend API to create token
+        const response = await fetch("/api/create-token", { method: "POST" });
+        const data = await response.json();
+        alert(`Token Created: ${data.tokenAddress}`);
+    }
+
+    return (
+        <div>
+            <WalletMultiButton />
+            <button onClick={handleCreateToken}>Create Video Token</button>
+        </div>
+    );
+}
+```
+
+---
+
+### **6. Storing Video Metadata (Metaplex)**
+Since Solana doesn’t store large files on-chain, you'll use **Metaplex** & **Arweave** for decentralized storage.
+
+```javascript
+import { Metaplex, bundlrStorage } from "@metaplex-foundation/js";
+import { Connection, Keypair } from "@solana/web3.js";
+
+const connection = new Connection("https://api.devnet.solana.com");
+const metaplex = new Metaplex(connection).use(bundlrStorage());
+
+async function uploadMetadata() {
+    const videoMetadata = {
+        name: "My Video Token",
+        symbol: "VID",
+        description: "A tokenized video asset",
+        image: "https://arweave.net/example-video-thumbnail.jpg",
+        animation_url: "https://arweave.net/example-video.mp4",
+        properties: {
+            category: "video",
+            files: [
+                { uri: "https://arweave.net/example-video.mp4", type: "video/mp4" }
+            ]
+        }
+    };
+    
+    const { uri } = await metaplex.nfts().uploadMetadata(videoMetadata);
+    console.log("Metadata URI:", uri);
+}
+```
+
+--.. fhello hll ho ar you doing hopng to  seingyou vry soon and to lttin gyo knwo that i so muc hl  you now nd l 
+
+---
+
+### **7. Summary**
+- **Solana Smart Contract (Rust)**: Defines token creation & attributes.
+- **Backend (Node.js/Express.js)**: Interacts with the blockchain using **web3.js**.
+- **Frontend (Next.js)**: Allows users to create & manage tokens via UI.
+- **Storage (Metaplex & Arweave)**: Hosts video metadata off-chain.
+
+---
+
+### **Next Steps**
+- Implement **bonding curve pricing** (linear, exponential models).
+- Develop **DEX integration** (Raydium, Serum).
+- Build a **live token introduction & AMA** feature.
+- Integrate **Solana Pay** for direct payments.
+
+Would you like a guide on bonding curves or DEX integration next? 🚀

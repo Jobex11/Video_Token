@@ -1,0 +1,165 @@
+
+
+===============
+CREATING TOKEN WITHOUT USING SMARTCONTRACTS 
+===============
+
+
+
+
+
+Yes! You **can** create a video token **without writing a custom Solana 
+smart contract** by using the **Solana SPL Token Program** with 
+`@solana/web3.js` and `@solana/spl-token`.  
+
+This method leverages existing **on-chain programs** like the SPL 
+Token Program, avoiding the need for custom Rust contracts.
+
+---
+
+## **Steps to Create a Video Token with Solana Web3.js**
+You’ll:
+1. **Create an SPL Token (Video Token)**
+2. **Mint it to your wallet**
+3. **Attach metadata (off-chain or via Metaplex)**
+
+### **1️⃣ Install Dependencies**
+If you haven't installed the required npm packages, do so:
+
+```sh
+npm install @solana/web3.js @solana/spl-token bs58 dotenv
+```
+
+---
+
+### **2️⃣ Generate a New Wallet (or Use an Existing One)**
+```javascript
+import { Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
+
+// Generate a new Solana keypair
+const wallet = Keypair.generate();
+console.log("New Wallet Address:", wallet.publicKey.toBase58());
+console.log("Secret Key (Save this!):", bs58.encode(wallet.secretKey));
+```
+🔹 **OR** use an existing wallet **(load from private key file)**.
+
+---
+
+### **3️⃣ Create an SPL Token (Video Token)**
+```javascript
+import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
+import dotenv from "dotenv";
+dotenv.config();
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const wallet = Keypair.fromSecretKey(new Uint8Array(JSON.parse(process.env.WALLET_SECRET))); // Load wallet from .env
+
+async function createVideoToken() {
+    // Create a new SPL token
+    const mint = await createMint(connection, wallet, wallet.publicKey, null, 0); // 0 decimals
+    console.log("Video Token Created:", mint.toBase58());
+
+    // Get associated token account
+    const ata = await getOrCreateAssociatedTokenAccount(connection, wallet, mint, wallet.publicKey);
+
+    // Mint 1 token (or supply you want)
+    await mintTo(connection, wallet, mint, ata.address, wallet.publicKey, 1);
+    console.log("Token Minted to:", ata.address.toBase58());
+}
+
+createVideoToken();
+```
+---
+### **4️⃣ Add Metadata to the Token (Optional)**
+By default, SPL tokens don’t have metadata. You can **add metadata using Metaplex’s Token Metadata Program**.
+
+#### **Using Metaplex Token Metadata Program**
+```javascript
+import { createCreateMetadataAccountV2Instruction } from "@metaplex-foundation/mpl-token-metadata";
+import { PublicKey } from "@solana/web3.js";
+
+const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+
+async function addMetadata(mintAddress, metadata) {
+    const metadataAccount = PublicKey.findProgramAddressSync(
+        [Buffer.from("metadata"), METADATA_PROGRAM_ID.toBuffer(), mintAddress.toBuffer()],
+        METADATA_PROGRAM_ID
+    )[0];
+
+    const transaction = new Transaction().add(
+        createCreateMetadataAccountV2Instruction(
+            {
+                metadata: metadataAccount,
+                mint: mintAddress,
+                mintAuthority: wallet.publicKey,
+                payer: wallet.publicKey,
+                updateAuthority: wallet.publicKey,
+            },
+            {
+                data: {
+                    name: metadata.name,
+                    symbol: metadata.symbol,
+                    uri: metadata.uri, // URL to video metadata (JSON format)
+                    sellerFeeBasisPoints: 0,
+                    creators: null,
+                    collection: null,
+                    uses: null,
+                },
+            }
+        )
+    );
+
+    await sendAndConfirmTransaction(connection, transaction, [wallet]);
+    console.log("Metadata Added!");
+}
+
+addMetadata(new PublicKey("YOUR_TOKEN_MINT_ADDRESS"), {
+    name: "My Video Token",
+    symbol: "VID",
+    uri: "https://your-video-metadata-url.com/metadata.json",
+});
+```
+
+---
+## **🔹 Summary**
+✅ **Without Smart Contract:**
+- Uses Solana’s **built-in SPL Token Program**.
+- Uses **Metaplex** for metadata (if needed).
+- Simple **JavaScript/Node.js** solution.
+
+🚀 **Next Steps:**
+- Deploy **Next.js UI** for minting.
+- Enable **trading with Raydium**.
+- Store metadata in **Arweave/IPFS**.
+
+Would you like help with the **Next.js UI** or **integrating wallets like Phantom?** 🚀
+
+
+
+
+
+
+
+
+
+
+
+====================
+CREATING USING SMARTCONTRACTS
+====================
+
+
+
+
+
+
+
+
+
+
+
+
+
+

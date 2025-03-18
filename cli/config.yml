@@ -1,0 +1,7 @@
+---
+json_rpc_url: https://api.mainnet-beta.solana.com
+websocket_url: ''
+keypair_path: Es9vwF4rPK2tR1YAL5sW2ZyAKhKAc6HRQMd4LNNFid5K.json
+address_labels:
+  '11111111111111111111111111111111': System Program
+commitment: confirmed
