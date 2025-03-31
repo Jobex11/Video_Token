@@ -1,119 +1,190 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Connection,
-  Keypair,
+  PublicKey,
   Transaction,
-  sendAndConfirmTransaction,
+  SystemProgram,
+  clusterApiUrl,
 } from "@solana/web3.js";
-import {
-  createMint,
-} from "@solana/spl-token";
 
-const RPC_URL = "https://api.devnet.solana.com"; // Use Devnet for testing
-const connection = new Connection(RPC_URL, "confirmed");
+const connection = new Connection(clusterApiUrl("devnet"));
 
 const TokenCreator = () => {
-  const [wallet, setWallet] = useState<any>(null);
-  const [name, setName] = useState("");
-  const [symbol, setSymbol] = useState("");
-  const [supply, setSupply] = useState("");
-  const [mintAddress, setMintAddress] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { publicKey, sendTransaction, connected } = useWallet();
+  const [isOpen, setIsOpen] = useState(false);
+  const [launchLater, setLaunchLater] = useState(false);
+  const [formData, setFormData] = useState({
+    symbol: "",
+    name: "",
+    supply: "",
+    launchDate: "",
+  });
+  const [transactionDetails, setTransactionDetails] = useState<{
+    contractAddress: string;
+    symbol: string;
+    name: string;
+    txHash: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if ("solana" in window) {
-      const provider = (window as any).solana;
-      if (provider.isPhantom) {
-        setWallet(provider);
-      }
-    }
-  }, []);
-
-  const connectWallet = async () => {
-    if (!wallet) return alert("Phantom Wallet not found!");
-    await wallet.connect();
+  const toggleModal = () => setIsOpen(!isOpen);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const createToken = async () => {
-    if (!wallet || !wallet.publicKey) return alert("Connect Wallet First!");
-    if (!name || !symbol || !supply) return alert("Fill in all fields!");
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const payer = wallet.publicKey;
-      const mintAuthority = payer;
-      const freezeAuthority = payer;
-
-      // Create new token mint
-      const mint = Keypair.generate();
-      const transaction = new Transaction();
-
-      const mintInstruction = await createMint(
-        connection,
-        payer,
-        mint.publicKey,
-        mintAuthority,
-        9
-      );
-
-      transaction.add(mintInstruction);
-      await sendAndConfirmTransaction(connection, transaction, [mint]);
-
-      setMintAddress(mint.publicKey.toBase58());
-    } catch (err) {
-      setError("Failed to create token.");
+    if (!connected || !publicKey) {
+      alert("Please connect your wallet!");
+      return;
     }
 
-    setLoading(false);
+    try {
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey("11111111111111111111111111111111"), // Dummy Address
+          lamports: 1000,
+        })
+      );
+
+      const signature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, "confirmed");
+
+      const fakeContractAddress = "FakeTokenAddress123";
+
+      setTransactionDetails({
+        contractAddress: fakeContractAddress,
+        symbol: formData.symbol,
+        name: formData.name,
+        txHash: signature,
+      });
+
+      toggleModal();
+    } catch (error) {
+      console.error("Transaction Failed:", error);
+      alert("Transaction failed! Check console for details.");
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-      <h1 className="text-2xl font-bold mb-4">Create Video Token</h1>
+    <div className="flex flex-col items-center">
+      <button
+        onClick={toggleModal}
+        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
+      >
+        Create Video Token
+      </button>
 
-      {!wallet ? (
-        <button onClick={connectWallet} className="p-2 bg-blue-600 rounded">
-          Connect Phantom
-        </button>
-      ) : (
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
-          <input
-            type="text"
-            placeholder="Token Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 text-white mb-2"
-          />
-          <input
-            type="text"
-            placeholder="Symbol"
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 text-white mb-2"
-          />
-          <input
-            type="number"
-            placeholder="Supply"
-            value={supply}
-            onChange={(e) => setSupply(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 text-white mb-2"
-          />
+      {isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">Create Video Token</h2>
 
-          <button
-            onClick={createToken}
-            disabled={loading}
-            className="w-full p-2 bg-blue-600 hover:bg-blue-700 rounded transition"
-          >
-            {loading ? "Creating..." : "Create Token"}
-          </button>
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Symbol</label>
+              <input
+                type="text"
+                name="symbol"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
 
-          {mintAddress && (
-            <p className="mt-4 text-green-400">Mint Address: {mintAddress}</p>
-          )}
-          {error && <p className="mt-3 text-red-400">{error}</p>}
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Token Name</label>
+              <input
+                type="text"
+                name="name"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Initial Supply
+              </label>
+              <input
+                type="number"
+                name="supply"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3 flex items-center">
+              <input
+                type="checkbox"
+                id="launchLater"
+                className="mr-2"
+                checked={launchLater}
+                onChange={() => setLaunchLater(!launchLater)}
+              />
+              <label htmlFor="launchLater" className="text-sm font-medium">
+                Launch Later
+              </label>
+            </div>
+
+            {launchLater && (
+              <div className="mb-3">
+                <label className="block text-sm font-medium">
+                  Launch Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  name="launchDate"
+                  className="w-full border px-3 py-2 rounded-md"
+                  onChange={handleChange}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={toggleModal}
+                className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createToken}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+              >
+                {launchLater ? "Schedule Launch" : "Launch Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transactionDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">
+              Token Created Successfully
+            </h2>
+            <p>
+              <strong>Contract Address:</strong>{" "}
+              {transactionDetails.contractAddress}
+            </p>
+            <p>
+              <strong>Name:</strong> {transactionDetails.name}
+            </p>
+            <p>
+              <strong>Symbol:</strong> {transactionDetails.symbol}
+            </p>
+            <p>
+              <strong>Transaction Hash:</strong> {transactionDetails.txHash}
+            </p>
+
+            <button
+              onClick={() => setTransactionDetails(null)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -121,3 +192,649 @@ const TokenCreator = () => {
 };
 
 export default TokenCreator;
+
+/*
+
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+  clusterApiUrl,
+} from "@solana/web3.js";
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+const connection = new Connection(clusterApiUrl("devnet"));
+
+const TokenCreator = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [launchLater, setLaunchLater] = useState(false);
+
+  const { publicKey, sendTransaction, connected } = useWallet();
+
+  const [formData, setFormData] = useState({
+    symbol: "",
+    name: "",
+    supply: "",
+    file: null as File | null,
+    launchDate: "",
+  });
+
+  const [transactionDetails, setTransactionDetails] = useState<{
+    contractAddress: string;
+    symbol: string;
+    name: string;
+    txHash: string;
+  } | null>(null);
+
+  const toggleModal = () => setIsOpen(!isOpen);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, files } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: files ? files[0] : value,
+    }));
+  };
+
+  const createToken = async () => {
+    if (!publicKey) {
+      console.error("Wallet not connected");
+      return;
+    }
+
+    try {
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey("11111111111111111111111111111111"),
+          lamports: 1000,
+        })
+      );
+
+      const signature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, "confirmed");
+
+      const fakeContractAddress = "FakeTokenAddress123";
+
+      setTransactionDetails({
+        contractAddress: fakeContractAddress,
+        symbol: formData.symbol,
+        name: formData.name,
+        txHash: signature,
+      });
+
+      toggleModal();
+    } catch (error) {
+      console.error("Transaction Failed:", error);
+      alert("Transaction failed! Check console for details.");
+    }
+  };
+
+  return (
+    <div>
+      <div className="text-xl">
+        Hey Welcome to DevMode! Create a token at ease
+      </div>
+      <div className="my-2 cursor-pointers">
+        <button
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition cursor-pointer"
+          onClick={toggleModal}
+        >
+          Create Token
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">Create Video Token</h2>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Symbol</label>
+              <input
+                type="text"
+                name="symbol"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Token Name</label>
+              <input
+                type="text"
+                name="name"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Initial Supply
+              </label>
+              <input
+                type="number"
+                name="supply"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Upload File (GIF, Image, Video)
+              </label>
+              <input
+                type="file"
+                accept="image/*, video/*, .gif"
+                name="file"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3 flex items-center">
+              <input
+                type="checkbox"
+                id="launchLater"
+                className="mr-2"
+                checked={launchLater}
+                onChange={() => setLaunchLater(!launchLater)}
+              />
+              <label htmlFor="launchLater" className="text-sm font-medium">
+                Launch Later
+              </label>
+            </div>
+
+            {launchLater && (
+              <div className="mb-3">
+                <label className="block text-sm font-medium">
+                  Launch Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  name="launchDate"
+                  className="w-full border px-3 py-2 rounded-md"
+                  onChange={handleChange}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={toggleModal}
+                className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createToken}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+              >
+                {launchLater ? "Schedule Launch" : "Launch Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transactionDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">
+              Token Created Successfully
+            </h2>
+            <p>
+              <strong>Contract Address:</strong>{" "}
+              {transactionDetails.contractAddress}
+            </p>
+            <p>
+              <strong>Name:</strong> {transactionDetails.name}
+            </p>
+            <p>
+              <strong>Symbol:</strong> {transactionDetails.symbol}
+            </p>
+            <p>
+              <strong>Transaction Hash:</strong> {transactionDetails.txHash}
+            </p>
+
+            <button
+              onClick={() => setTransactionDetails(null)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TokenCreator;
+
+*/
+
+/*
+
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+} from "@solana/web3.js";
+
+const SOLANA_RPC_URL = "https://api.devnet.solana.com"; 
+const connection = new Connection(SOLANA_RPC_URL, "confirmed");
+
+const TokenCreator = () => {
+  const { publicKey, sendTransaction, connected } = useWallet();
+  const [isOpen, setIsOpen] = useState(false);
+  const [launchLater, setLaunchLater] = useState(false);
+  const [formData, setFormData] = useState({
+    symbol: "",
+    name: "",
+    supply: "",
+    launchDate: "",
+  });
+  const [transactionDetails, setTransactionDetails] = useState<{
+    contractAddress: string;
+    symbol: string;
+    name: string;
+    txHash: string;
+  } | null>(null);
+
+  const toggleModal = () => setIsOpen(!isOpen);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const createToken = async () => {
+    if (!connected || !publicKey) {
+      alert("Please connect your wallet!");
+      return;
+    }
+
+    try {
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey("11111111111111111111111111111111"), // Dummy Address
+          lamports: 1000, })
+      );
+
+      const signature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, "confirmed");
+
+      const fakeContractAddress = "FakeTokenAddress123";
+
+      setTransactionDetails({
+        contractAddress: fakeContractAddress,
+        symbol: formData.symbol,
+        name: formData.name,
+        txHash: signature,
+      });
+
+      toggleModal();
+    } catch (error) {
+      console.error("Transaction Failed:", error);
+      alert("Transaction failed! Check console for details.");
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        onClick={toggleModal}
+        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
+      >
+        Create Video Token
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">Create Video Token</h2>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Symbol</label>
+              <input
+                type="text"
+                name="symbol"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Token Name</label>
+              <input
+                type="text"
+                name="name"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Initial Supply
+              </label>
+              <input
+                type="number"
+                name="supply"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3 flex items-center">
+              <input
+                type="checkbox"
+                id="launchLater"
+                className="mr-2"
+                checked={launchLater}
+                onChange={() => setLaunchLater(!launchLater)}
+              />
+              <label htmlFor="launchLater" className="text-sm font-medium">
+                Launch Later
+              </label>
+            </div>
+
+            {launchLater && (
+              <div className="mb-3">
+                <label className="block text-sm font-medium">
+                  Launch Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  name="launchDate"
+                  className="w-full border px-3 py-2 rounded-md"
+                  onChange={handleChange}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={toggleModal}
+                className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createToken}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+              >
+                {launchLater ? "Schedule Launch" : "Launch Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transactionDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">
+              Token Created Successfully
+            </h2>
+            <p>
+              <strong>Contract Address:</strong>{" "}
+              {transactionDetails.contractAddress}
+            </p>
+            <p>
+              <strong>Name:</strong> {transactionDetails.name}
+            </p>
+            <p>
+              <strong>Symbol:</strong> {transactionDetails.symbol}
+            </p>
+            <p>
+              <strong>Transaction Hash:</strong> {transactionDetails.txHash}
+            </p>
+
+            <button
+              onClick={() => setTransactionDetails(null)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TokenCreator;
+
+*/
+
+/*
+
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+} from "@solana/web3.js";
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+const SOLANA_RPC_URL = "https://api.devnet.solana.com";
+const connection = new Connection(SOLANA_RPC_URL, "confirmed");
+
+const TokenCreator = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [launchLater, setLaunchLater] = useState(false);
+
+  const { publicKey, sendTransaction, connected } = useWallet();
+
+  const [formData, setFormData] = useState({
+    symbol: "",
+    name: "",
+    supply: "",
+    file: null as File | null,
+    launchDate: "",
+  });
+
+  const [transactionDetails, setTransactionDetails] = useState<{
+    contractAddress: string;
+    symbol: string;
+    name: string;
+    txHash: string;
+  } | null>(null);
+
+  const toggleModal = () => setIsOpen(!isOpen);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, files } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: files ? files[0] : value,
+    }));
+  };
+
+  const createToken = async () => {
+    if (!publicKey) {
+      console.error("Wallet not connected");
+      return;
+    }
+
+    try {
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey("11111111111111111111111111111111"), // Dummy Address
+          lamports: 1000,
+        })
+      );
+
+      const signature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, "confirmed");
+
+      const fakeContractAddress = "FakeTokenAddress123";
+
+      setTransactionDetails({
+        contractAddress: fakeContractAddress,
+        symbol: formData.symbol,
+        name: formData.name,
+        txHash: signature,
+      });
+
+      toggleModal();
+    } catch (error) {
+      console.error("Transaction Failed:", error);
+      alert("Transaction failed! Check console for details.");
+    }
+  };
+
+  return (
+    <div>
+      <div className="text-xl">
+        Hey Welcome to DevMode! Create a token at ease
+      </div>
+      <div className="my-2 cursor-pointers">
+        <button
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition cursor-pointer"
+          onClick={toggleModal}
+        >
+          Create Token
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">Create Video Token</h2>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Symbol</label>
+              <input
+                type="text"
+                name="symbol"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Token Name</label>
+              <input
+                type="text"
+                name="name"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Initial Supply
+              </label>
+              <input
+                type="number"
+                name="supply"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">
+                Upload File (GIF, Image, Video)
+              </label>
+              <input
+                type="file"
+                accept="image/*, video/*, .gif"
+                name="file"
+                className="w-full border px-3 py-2 rounded-md"
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3 flex items-center">
+              <input
+                type="checkbox"
+                id="launchLater"
+                className="mr-2"
+                checked={launchLater}
+                onChange={() => setLaunchLater(!launchLater)}
+              />
+              <label htmlFor="launchLater" className="text-sm font-medium">
+                Launch Later
+              </label>
+            </div>
+
+            {launchLater && (
+              <div className="mb-3">
+                <label className="block text-sm font-medium">
+                  Launch Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  name="launchDate"
+                  className="w-full border px-3 py-2 rounded-md"
+                  onChange={handleChange}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={toggleModal}
+                className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createToken}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+              >
+                {launchLater ? "Schedule Launch" : "Launch Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transactionDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4">
+              Token Created Successfully
+            </h2>
+            <p>
+              <strong>Contract Address:</strong>{" "}
+              {transactionDetails.contractAddress}
+            </p>
+            <p>
+              <strong>Name:</strong> {transactionDetails.name}
+            </p>
+            <p>
+              <strong>Symbol:</strong> {transactionDetails.symbol}
+            </p>
+            <p>
+              <strong>Transaction Hash:</strong> {transactionDetails.txHash}
+            </p>
+
+            <button
+              onClick={() => setTransactionDetails(null)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TokenCreator;
+
+*/

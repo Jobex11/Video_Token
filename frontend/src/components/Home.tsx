@@ -1,16 +1,16 @@
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import TokenCreator from "./TokenCreator";
-
+import CreateToken from "./CreateToken";
+import Navbar from "./Navbar";
+//import TokenCreator from "./TokenCreator";
 const Home = () => {
   return (
-    <div className="w-full flex flex-col items-center justify-center bg-red-50 h-[100vh]">
-      <div className="text-2xl m-4 font-semibold">Video-Token</div>
+    <div className="w-full h-[100vh]">
       <div>
-        <div>
-          <WalletMultiButton />
+        <div className="h-[80px] p-3 flex flex-col items-center bg-gray-50 w-full shadow ">
+          <Navbar />
         </div>
-        <div>
-          <TokenCreator />
+
+        <div className="border p-3">
+          <CreateToken />
         </div>
       </div>
     </div>
