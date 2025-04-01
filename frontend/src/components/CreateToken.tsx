@@ -4,12 +4,14 @@ const CreateToken = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [launchLater, setLaunchLater] = useState(false);
 
+  /*
   const [formData, setFormData] = useState({
     symbol: "",
     supply: "",
     file: null as File | null,
     launchDate: "",
   });
+  */
 
   const [transactionDetails, setTransactionDetails] = useState<{
     contractAddress: string;
@@ -19,13 +21,17 @@ const CreateToken = () => {
   } | null>(null);
 
   const toggleModal = () => setIsOpen(!isOpen);
+
+  /*
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, files } = e.target;
+    
     setFormData((prev) => ({
       ...prev,
       [name]: files ? files[0] : value,
     }));
   };
+  */
 
   return (
     <div>
@@ -49,7 +55,6 @@ const CreateToken = () => {
                 type="text"
                 name="symbol"
                 className="w-full border px-3 py-2 rounded-md"
-                onChange={handleChange}
               />
             </div>
 
@@ -59,7 +64,6 @@ const CreateToken = () => {
                 type="text"
                 name="name"
                 className="w-full border px-3 py-2 rounded-md"
-                onChange={handleChange}
               />
             </div>
 
@@ -71,7 +75,6 @@ const CreateToken = () => {
                 type="number"
                 name="supply"
                 className="w-full border px-3 py-2 rounded-md"
-                onChange={handleChange}
               />
             </div>
 
@@ -84,7 +87,6 @@ const CreateToken = () => {
                 accept="image/*, video/*, .gif"
                 name="file"
                 className="w-full border px-3 py-2 rounded-md"
-                onChange={handleChange}
               />
             </div>
 
@@ -110,7 +112,6 @@ const CreateToken = () => {
                   type="datetime-local"
                   name="launchDate"
                   className="w-full border px-3 py-2 rounded-md"
-                  onChange={handleChange}
                 />
               </div>
             )}
