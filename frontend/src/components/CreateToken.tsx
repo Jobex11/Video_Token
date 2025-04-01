@@ -50,7 +50,9 @@ const CreateToken = () => {
             <h2 className="text-xl font-bold mb-4">Create Video Token</h2>
 
             <div className="mb-3">
-              <label className="block text-sm font-medium">Symbol</label>
+              <label className="block text-sm font-medium">
+                Token Symbol (Thicker)
+              </label>
               <input
                 type="text"
                 name="symbol"
@@ -60,6 +62,15 @@ const CreateToken = () => {
 
             <div className="mb-3">
               <label className="block text-sm font-medium">Token Name</label>
+              <input
+                type="text"
+                name="name"
+                className="w-full border px-3 py-2 rounded-md"
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Descriptiion</label>
               <input
                 type="text"
                 name="name"
@@ -80,8 +91,11 @@ const CreateToken = () => {
 
             <div className="mb-3">
               <label className="block text-sm font-medium">
-                Upload File (GIF, Image, Video)
+                Upload File (Video)
               </label>
+              <h2 className="text-red-700  text-xs my-1">
+                Note: Video is shortened to 1 minute clip
+              </h2>
               <input
                 type="file"
                 accept="image/*, video/*, .gif"
