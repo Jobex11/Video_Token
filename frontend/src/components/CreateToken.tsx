@@ -1,8 +1,110 @@
 import { useState } from "react";
+import { Keypair, SystemProgram, Transaction } from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  getAssociatedTokenAddress,
+  createMintToInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+} from "@solana/spl-token";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 
 const CreateToken = () => {
+  const wallet = useWallet();
   const [isOpen, setIsOpen] = useState(false);
   const [launchLater, setLaunchLater] = useState(false);
+
+  const { connection } = useConnection();
+  const [name, setName] = useState<string>("");
+  const [symbol, setSymbol] = useState<string>("");
+  const [decimals, setDecimals] = useState<number | "">("");
+  const [amount, setAmount] = useState<number | "">("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  //const [tokenMint, setTokenMint] = useState<string | null>(null);
+
+  const handleCreateToken = async () => {
+    if (!wallet.publicKey) {
+      alert("Wallet not connected");
+      return;
+    }
+
+    if (!name || !symbol || !decimals || !amount) {
+      alert("Please provide name, symbol, decimals, and amount.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // 1. Create a mint keypair (new token)
+      const mintKeypair = Keypair.generate();
+
+      // 2. Create associated token account for the wallet
+      const associatedToken = await getAssociatedTokenAddress(
+        mintKeypair.publicKey,
+        wallet.publicKey,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+      // 3. Calculate rent-exempt balance for mint account
+      const space = 82;
+      const lamports = await connection.getMinimumBalanceForRentExemption(
+        space
+      );
+
+      // 4. Build the transaction
+      const transaction = new Transaction().add(
+        SystemProgram.createAccount({
+          fromPubkey: wallet.publicKey,
+          newAccountPubkey: mintKeypair.publicKey,
+          space,
+          lamports,
+          programId: TOKEN_2022_PROGRAM_ID,
+        }),
+        createInitializeMintInstruction(
+          mintKeypair.publicKey,
+          Number(decimals),
+          wallet.publicKey,
+          null,
+          TOKEN_2022_PROGRAM_ID
+        ),
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey, // payer
+          associatedToken, // associated token address
+          wallet.publicKey, // token account owner
+          mintKeypair.publicKey, // token mint
+          TOKEN_2022_PROGRAM_ID
+        ),
+
+        createMintToInstruction(
+          mintKeypair.publicKey,
+          associatedToken,
+          wallet.publicKey,
+          Number(amount) * Math.pow(10, Number(decimals)),
+          [],
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+
+      transaction.feePayer = wallet.publicKey;
+      transaction.recentBlockhash = (
+        await connection.getLatestBlockhash()
+      ).blockhash;
+      transaction.partialSign(mintKeypair);
+
+      const signature = await wallet.sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature);
+
+      console.log("Token created successfully!");
+      console.log("Mint Address:", mintKeypair.publicKey.toBase58());
+    } catch (error) {
+      console.error("Error creating token:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /*
   const [formData, setFormData] = useState({
@@ -13,12 +115,15 @@ const CreateToken = () => {
   });
   */
 
+  /*
   const [transactionDetails, setTransactionDetails] = useState<{
     contractAddress: string;
     symbol: string;
     name: string;
     txHash: string;
   } | null>(null);
+
+  */
 
   const toggleModal = () => setIsOpen(!isOpen);
 
@@ -56,6 +161,8 @@ const CreateToken = () => {
               <input
                 type="text"
                 name="symbol"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
                 className="w-full border px-3 py-2 rounded-md"
               />
             </div>
@@ -66,6 +173,8 @@ const CreateToken = () => {
                 type="text"
                 name="name"
                 className="w-full border px-3 py-2 rounded-md"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
             </div>
 
@@ -85,7 +194,21 @@ const CreateToken = () => {
               <input
                 type="number"
                 name="supply"
+                placeholder="enter amount to mint"
                 className="w-full border px-3 py-2 rounded-md"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium">Token Decimal</label>
+              <input
+                type="number"
+                name="supply"
+                placeholder="default value is  9"
+                className="w-full border px-3 py-2 rounded-md"
+                value={decimals}
+                onChange={(e) => setDecimals(Number(e.target.value))}
               />
             </div>
 
@@ -137,15 +260,25 @@ const CreateToken = () => {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
-                {launchLater ? "Schedule Launch" : "Launch Now"}
+              <button
+                style={{
+                  cursor: loading ? "not-allowed" : "Launching ...",
+                }}
+                onClick={handleCreateToken}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+              >
+                {/*
+   {launchLater ? "Schedule Launch" : "Launch Now"}
+*/}
+                {loading ? "Launching ..." : "Launch"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {transactionDetails && (
+      {/*
+{transactionDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-lg">
             <h2 className="text-xl font-bold mb-4">
@@ -174,6 +307,7 @@ const CreateToken = () => {
           </div>
         </div>
       )}
+*/}
     </div>
   );
 };
