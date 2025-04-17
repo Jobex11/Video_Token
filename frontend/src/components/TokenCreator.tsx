@@ -1,3 +1,11 @@
+const TokenCreator = () => {
+  return <div>TokenCreator</div>;
+};
+
+export default TokenCreator;
+/*
+
+
 import { useState } from "react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Keypair, SystemProgram, Transaction } from "@solana/web3.js";
@@ -18,7 +26,10 @@ const TokenCreator = () => {
   const [decimals, setDecimals] = useState<number | "">("");
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState<boolean>(false);
+  
+ 
   const [tokenMint, setTokenMint] = useState<string | null>(null);
+  
   const handleCreateToken = async () => {
     if (!wallet.publicKey) {
       alert("Wallet not connected");
@@ -33,10 +44,8 @@ const TokenCreator = () => {
     try {
       setLoading(true);
 
-      // 1. Create a mint keypair (new token)
       const mintKeypair = Keypair.generate();
 
-      // 2. Create associated token account for the wallet
       const associatedToken = await getAssociatedTokenAddress(
         mintKeypair.publicKey,
         wallet.publicKey,
@@ -44,13 +53,11 @@ const TokenCreator = () => {
         TOKEN_2022_PROGRAM_ID
       );
 
-      // 3. Calculate rent-exempt balance for mint account
       const space = 82;
       const lamports = await connection.getMinimumBalanceForRentExemption(
         space
       );
 
-      // 4. Build the transaction
       const transaction = new Transaction().add(
         SystemProgram.createAccount({
           fromPubkey: wallet.publicKey,
@@ -67,10 +74,10 @@ const TokenCreator = () => {
           TOKEN_2022_PROGRAM_ID
         ),
         createAssociatedTokenAccountInstruction(
-          wallet.publicKey, // payer
-          associatedToken, // associated token address
-          wallet.publicKey, // token account owner
-          mintKeypair.publicKey, // token mint
+          wallet.publicKey, 
+          associatedToken, 
+          wallet.publicKey, 
+          mintKeypair.publicKey, 
           TOKEN_2022_PROGRAM_ID
         ),
 
@@ -175,3 +182,5 @@ const TokenCreator = () => {
 };
 
 export default TokenCreator;  
+
+*/
