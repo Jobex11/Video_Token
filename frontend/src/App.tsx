@@ -27,12 +27,12 @@ function App() {
     ],
     []
   );
-
+  //  removed autoconnect
   return (
     <>
       <div>
         <ConnectionProvider endpoint={network}>
-          <WalletProvider wallets={wallets} autoConnect>
+          <WalletProvider wallets={wallets}>
             <WalletModalProvider>
               <div>
                 <Home />
