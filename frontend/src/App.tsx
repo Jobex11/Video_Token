@@ -16,7 +16,7 @@ import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import Home from "./components/Home";
 function App() {
-  const network = clusterApiUrl("devnet");
+  const network = clusterApiUrl("mainnet-beta");
 
   // Set up wallet adapters
   const wallets = useMemo(
